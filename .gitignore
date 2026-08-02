@@ -3,6 +3,7 @@ notes.md
 .env
 tmp/
 .serena/
+.codex*/
 
 # === Runtime ===
 pulse.db
