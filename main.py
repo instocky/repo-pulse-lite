@@ -10,13 +10,15 @@ from report import write_report
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Repo-Pulse Lite")
-    parser.add_argument("command", choices=["snapshot", "report"])
+    parser.add_argument("command", choices=["snapshot", "report", "all"])
     args = parser.parse_args()
 
     if args.command == "snapshot":
         run_snapshot()
-    if args.command == "report":
+    elif args.command == "report":
         run_report()
+    else:
+        run_all()
 
 
 def run_snapshot() -> None:
@@ -37,6 +39,11 @@ def run_report() -> None:
     config = load_config()
     repo_count = write_report(config.database_path, config.report_path)
     print(f"Saved report for {repo_count} repos to {config.report_path}")
+
+
+def run_all() -> None:
+    run_snapshot()
+    run_report()
 
 
 if __name__ == "__main__":
