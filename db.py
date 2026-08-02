@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import sqlite3
 from datetime import datetime, timezone
@@ -63,6 +63,36 @@ def insert_snapshot(database_path: Path, repos: list[dict[str, Any]]) -> str:
         )
 
     return snapshot_at
+
+
+def select_latest_snapshot(database_path: Path) -> list[dict[str, Any]]:
+    with sqlite3.connect(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            """
+            SELECT
+                snapshot_at,
+                repo_id,
+                full_name,
+                name,
+                owner_login,
+                html_url,
+                description,
+                language,
+                stargazers_count,
+                forks_count,
+                watchers_count,
+                open_issues_count,
+                updated_at,
+                pushed_at,
+                latest_release_published_at
+            FROM snapshots
+            WHERE snapshot_at = (SELECT MAX(snapshot_at) FROM snapshots)
+            ORDER BY stargazers_count DESC, full_name ASC
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
 
 
 def _snapshot_row(snapshot_at: str, repo: dict[str, Any]) -> tuple[Any, ...]:
