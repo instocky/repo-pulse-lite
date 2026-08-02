@@ -1,4 +1,4 @@
-﻿# Инструкция по деплою Repo-Pulse Lite на Ubuntu 22.04
+# Инструкция по деплою Repo-Pulse Lite на Ubuntu 22.04
 
 Проект генерирует `report.html` и отдаёт его через Nginx. Само приложение запускается по Cron и обновляет SQLite-базу и HTML-отчёт.
 
@@ -179,7 +179,7 @@ crontab -l
 
 ## 8. Обновление приложения
 
-При новом деплое:
+Обычное обновление без локальных изменений:
 
 ```bash
 cd /var/www/repo-pulse
@@ -188,7 +188,40 @@ source .venv/bin/activate
 pip install -e .
 python main.py report
 sudo nginx -t
+git rev-parse --short HEAD
 ```
+
+Если `git pull` проходит успешно, `git rev-parse --short HEAD` должен показать новый commit, а `python main.py report` пересоберёт `report.html` уже из актуального кода.
+
+Если `git pull` падает с ошибкой вида:
+
+```text
+error: Your local changes to the following files would be overwritten by merge:
+        pyproject.toml
+Aborting
+```
+
+это означает, что на сервере есть незакоммиченные локальные правки, и код не обновился.
+
+Сначала посмотрите, что именно изменено:
+
+```bash
+git status
+git diff pyproject.toml
+```
+
+Если локальная правка не нужна, самый прямой путь такой:
+
+```bash
+git restore pyproject.toml
+git pull
+source .venv/bin/activate
+pip install -e .
+python main.py report
+git rev-parse --short HEAD
+```
+
+Важно: если после `git pull` commit не изменился, значит сервер всё ещё работает на старом коде, и новые изменения в `report.py`, `pyproject.toml` или других файлах на прод не попали.
 
 ## 9. Типовые проблемы
 
