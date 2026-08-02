@@ -186,7 +186,7 @@ cd /var/www/repo-pulse
 git pull
 source .venv/bin/activate
 pip install -e .
-python main.py all
+python main.py report
 sudo nginx -t
 ```
 

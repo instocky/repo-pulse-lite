@@ -1,8 +1,10 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
+import html
 import json
 from pathlib import Path
 from statistics import mean
+import subprocess
 from typing import Any
 
 from db import select_latest_growth, select_recently_updated, select_top_growth
@@ -64,6 +66,15 @@ def _build_html(
     total_today = sum(row["today_delta"] for row in rows)
     total_7d = _sum_optional(rows, "delta_7d")
     total_30d = _sum_optional(rows, "delta_30d")
+    tooltip_title = ""
+    git_metadata = _read_git_metadata()
+    if git_metadata is not None:
+        tooltip_lines = [
+            f"Branch: {git_metadata['branch']}",
+            f"Commit: {git_metadata['commit']}",
+            f"Commit Date: {git_metadata['committed_at']}",
+        ]
+        tooltip_title = html.escape("\n".join(tooltip_lines), quote=True)
     payload = json.dumps(
         {
             "rows": rows,
@@ -157,7 +168,7 @@ def _build_html(
       <div class=\"flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between\">
         <div class=\"max-w-3xl\">
           <span class=\"inline-flex rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700\">Growth analytics</span>
-          <h1 class=\"mt-4 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl\">Repo-Pulse Lite</h1>
+          <h1 class=\"mt-4 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl\" title=\"{tooltip_title}\">Repo-Pulse Lite</h1>
           <p class=\"mt-3 max-w-2xl text-base text-slate-600 sm:text-lg\">
             Snapshot at {snapshot_at}. The full dataset is embedded in this file, so filtering and sorting stay client-side.
           </p>
@@ -405,3 +416,33 @@ def _format_best_delta(row: dict[str, Any]) -> str:
     if best is None:
         best = row["today_delta"]
     return _format_optional_delta(best)
+
+
+def _read_git_metadata() -> dict[str, str] | None:
+    repo_root = Path(__file__).resolve().parent
+    try:
+        branch = _run_git_command(repo_root, "branch", "--show-current")
+        commit = _run_git_command(repo_root, "rev-parse", "--short", "HEAD")
+        committed_at = _run_git_command(repo_root, "show", "-s", "--format=%cI", "HEAD")
+    except (OSError, RuntimeError, subprocess.CalledProcessError):
+        return None
+
+    if not branch or not commit or not committed_at:
+        return None
+
+    return {
+        "branch": branch,
+        "commit": commit,
+        "committed_at": committed_at,
+    }
+
+
+def _run_git_command(repo_root: Path, *args: str) -> str:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return completed.stdout.strip()
