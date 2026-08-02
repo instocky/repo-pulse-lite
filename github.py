@@ -22,8 +22,24 @@ def fetch_starred(config: Config) -> list[dict[str, Any]]:
             batch = response.json()
             if not batch:
                 return repos
+
+            for repo in batch:
+                repo["latest_release_published_at"] = _fetch_latest_release_published_at(client, repo["full_name"])
             repos.extend(batch)
             page += 1
+
+
+def _fetch_latest_release_published_at(client: httpx.Client, full_name: str) -> str | None:
+    response = client.get(f"/repos/{full_name}/releases/latest", params=None)
+    try:
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return None
+        raise
+
+    payload = response.json()
+    return payload.get("published_at")
 
 
 def _client(config: Config) -> httpx.Client:

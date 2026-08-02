@@ -1,12 +1,11 @@
 ﻿from __future__ import annotations
 
-from html import escape
+import json
 from pathlib import Path
 from statistics import mean
 from typing import Any
 
-from db import select_latest_growth, select_top_growth, select_recently_updated
-
+from db import select_latest_growth, select_recently_updated, select_top_growth
 
 
 def write_report(database_path: Path, output_path: Path) -> int:
@@ -24,7 +23,6 @@ def write_report(database_path: Path, output_path: Path) -> int:
     return len(rows)
 
 
-
 def _build_chart(rows: list[dict[str, Any]]) -> str:
     try:
         import plotly.graph_objects as go
@@ -37,7 +35,7 @@ def _build_chart(rows: list[dict[str, Any]]) -> str:
             x=[row["stargazers_count"] for row in top_rows],
             y=[row["full_name"] for row in top_rows],
             orientation="h",
-            marker_color="#2563eb",
+            marker_color="#ea580c",
             hovertemplate="%{y}<br>Stars: %{x}<extra></extra>",
         )
     )
@@ -53,7 +51,6 @@ def _build_chart(rows: list[dict[str, Any]]) -> str:
     return figure.to_html(full_html=False, include_plotlyjs=True)
 
 
-
 def _build_html(
     rows: list[dict[str, Any]],
     top_growth: list[dict[str, Any]],
@@ -67,214 +64,320 @@ def _build_html(
     total_today = sum(row["today_delta"] for row in rows)
     total_7d = _sum_optional(rows, "delta_7d")
     total_30d = _sum_optional(rows, "delta_30d")
-    table_rows = "\n".join(_build_table_row(row) for row in rows)
-    growth_rows = "\n".join(_build_growth_row(row) for row in top_growth)
-    recent_rows = "\n".join(_build_recent_row(row) for row in recent_updates)
+    payload = json.dumps(
+        {
+            "rows": rows,
+            "top_growth": top_growth,
+            "recent_updates": recent_updates,
+        },
+        ensure_ascii=False,
+    ).replace("</", "<\\/")
 
     return f"""<!DOCTYPE html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset=\"utf-8\">
+  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
   <title>Repo-Pulse Lite Report</title>
-  <style>
-    :root {{
-      color-scheme: light;
-      --bg: #f8fafc;
-      --panel: #ffffff;
-      --text: #0f172a;
-      --muted: #475569;
-      --line: #cbd5e1;
-      --accent: #2563eb;
-      --accent-soft: #dbeafe;
-      --success: #15803d;
-      --warn: #b45309;
+  <script src=\"https://cdn.tailwindcss.com\"></script>
+  <script defer src=\"https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js\"></script>
+  <script>
+    tailwind.config = {{
+      theme: {{
+        extend: {{
+          colors: {{
+            ink: \"#0f172a\",
+            pine: \"#15803d\",
+            clay: \"#9a3412\",
+          }},
+          boxShadow: {{
+            panel: \"0 20px 50px rgba(15, 23, 42, 0.08)\",
+          }},
+        }},
+      }},
+    }};
+
+    function repoPulseReport(payload) {{
+      return {{
+        rows: payload.rows,
+        topGrowth: payload.top_growth,
+        recentUpdates: payload.recent_updates,
+        search: \"\",
+        language: \"all\",
+        sort: \"stars_desc\",
+        showGrowth: true,
+        showRecent: true,
+        get languages() {{
+          return [...new Set(this.rows.map((row) => row.language).filter(Boolean))].sort();
+        }},
+        get filteredRows() {{
+          const term = this.search.trim().toLowerCase();
+          const items = this.rows.filter((row) => {{
+            const matchesSearch =
+              !term ||
+              row.full_name.toLowerCase().includes(term) ||
+              (row.description || \"\").toLowerCase().includes(term);
+            const matchesLanguage = this.language === \"all\" || (row.language || \"Unknown\") === this.language;
+            return matchesSearch && matchesLanguage;
+          }});
+          return items.sort((left, right) => this.compareRows(left, right));
+        }},
+        compareRows(left, right) {{
+          if (this.sort === \"growth_desc\") {{
+            return this.bestDelta(right) - this.bestDelta(left) || right.stargazers_count - left.stargazers_count;
+          }}
+          if (this.sort === \"updated_desc\") {{
+            return (right.updated_at || \"\").localeCompare(left.updated_at || \"\") || left.full_name.localeCompare(right.full_name);
+          }}
+          return right.stargazers_count - left.stargazers_count || left.full_name.localeCompare(right.full_name);
+        }},
+        bestDelta(row) {{
+          return row.delta_30d ?? row.delta_7d ?? row.today_delta ?? -1;
+        }},
+        deltaClass(value) {{
+          if (value === null || value === undefined) return \"text-clay\";
+          if (value === 0) return \"text-slate-500\";
+          return \"text-pine\";
+        }},
+        deltaText(value) {{
+          if (value === null || value === undefined) return \"n/a\";
+          return `${{value >= 0 ? \"+\" : \"\"}}${{value.toLocaleString()}}`;
+        }},
+      }};
     }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0;
-      font-family: "Segoe UI", sans-serif;
-      color: var(--text);
-      background:
-        radial-gradient(circle at top left, #dbeafe 0, transparent 28%),
-        linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
-    }}
-    main {{ max-width: 1200px; margin: 0 auto; padding: 32px 20px 48px; }}
-    h1, h2, h3 {{ margin: 0; }}
-    p {{ margin: 0; color: var(--muted); }}
-    .hero {{
-      background: rgba(255, 255, 255, 0.88);
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      border-radius: 24px;
-      padding: 28px;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
-    }}
-    .meta {{ margin-top: 8px; }}
-    .grid {{
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-      gap: 16px;
-      margin: 24px 0;
-    }}
-    .split {{
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 20px;
-      margin-top: 20px;
-    }}
-    .card, .panel {{
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 20px;
-      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
-    }}
-    .card {{ padding: 18px 20px; }}
-    .card strong {{ display: block; font-size: 1.8rem; margin-bottom: 6px; }}
-    .eyebrow {{
-      display: inline-block;
-      margin-bottom: 10px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      background: var(--accent-soft);
-      color: var(--accent);
-      font-size: 0.82rem;
-      font-weight: 600;
-    }}
-    .panel {{ margin-top: 20px; padding: 20px; overflow: hidden; }}
-    table {{ width: 100%; border-collapse: collapse; margin-top: 12px; }}
-    th, td {{ padding: 12px 10px; border-top: 1px solid #e2e8f0; text-align: left; }}
-    th {{ font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }}
-    a {{ color: var(--accent); text-decoration: none; }}
-    a:hover {{ text-decoration: underline; }}
-    .description {{
-      max-width: 420px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }}
-    .delta {{ font-weight: 700; color: var(--success); }}
-    .delta.flat {{ color: var(--muted); }}
-    .delta.na {{ color: var(--warn); }}
-    .subtle {{ color: var(--muted); font-size: 0.92rem; }}
-    @media (max-width: 860px) {{
-      .split {{ grid-template-columns: 1fr; }}
-    }}
-    @media (max-width: 720px) {{
-      main {{ padding: 20px 14px 32px; }}
-      .hero, .panel {{ padding: 16px; border-radius: 16px; }}
-      th:nth-child(4), td:nth-child(4),
-      th:nth-child(5), td:nth-child(5),
-      th:nth-child(6), td:nth-child(6),
-      th:nth-child(7), td:nth-child(7) {{ display: none; }}
-    }}
-  </style>
+  </script>
 </head>
-<body>
-  <main>
-    <section class="hero">
-      <span class="eyebrow">Growth Analytics</span>
-      <h1>Repo-Pulse Lite</h1>
-      <p class="meta">Snapshot at {escape(snapshot_at)}</p>
-      <div class="grid">
-        <article class="card">
-          <strong>{len(rows)}</strong>
-          <p>Starred repositories</p>
+<body class=\"min-h-screen bg-[radial-gradient(circle_at_top_left,_rgba(251,146,60,0.22),_transparent_22%),linear-gradient(180deg,_#fff7ed_0%,_#f8fafc_45%,_#ecfeff_100%)] text-ink\">
+  <script id=\"report-data\" type=\"application/json\">{payload}</script>
+  <main
+    x-data=\"repoPulseReport(JSON.parse(document.getElementById('report-data').textContent))\"
+    class=\"mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8\"
+  >
+    <section class=\"overflow-hidden rounded-[2rem] border border-white/70 bg-white/80 p-6 shadow-panel backdrop-blur md:p-8\">
+      <div class=\"flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between\">
+        <div class=\"max-w-3xl\">
+          <span class=\"inline-flex rounded-full bg-orange-100 px-3 py-1 text-sm font-semibold text-orange-700\">Growth analytics</span>
+          <h1 class=\"mt-4 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl\">Repo-Pulse Lite</h1>
+          <p class=\"mt-3 max-w-2xl text-base text-slate-600 sm:text-lg\">
+            Snapshot at {snapshot_at}. The full dataset is embedded in this file, so filtering and sorting stay client-side.
+          </p>
+        </div>
+        <div class=\"grid min-w-full gap-3 sm:grid-cols-2 lg:min-w-[22rem]\">
+          <button
+            type=\"button\"
+            @click=\"showGrowth = !showGrowth\"
+            class=\"rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-left text-sm font-semibold text-orange-900 transition hover:-translate-y-0.5 hover:bg-orange-100\"
+          >
+            Top Growing
+            <span class=\"mt-1 block text-xs font-medium text-orange-700\" x-text=\"showGrowth ? 'Visible' : 'Hidden'\"></span>
+          </button>
+          <button
+            type=\"button\"
+            @click=\"showRecent = !showRecent\"
+            class=\"rounded-2xl border border-cyan-200 bg-cyan-50 px-4 py-3 text-left text-sm font-semibold text-cyan-900 transition hover:-translate-y-0.5 hover:bg-cyan-100\"
+          >
+            Recently Updated
+            <span class=\"mt-1 block text-xs font-medium text-cyan-700\" x-text=\"showRecent ? 'Visible' : 'Hidden'\"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class=\"mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4\">
+        <article class=\"rounded-3xl border border-slate-200 bg-slate-50 p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-slate-500\">Repos</p>
+          <p class=\"mt-4 text-3xl font-black text-slate-950\">{len(rows)}</p>
+          <p class=\"mt-2 text-sm text-slate-600\">Starred repositories in the latest snapshot.</p>
         </article>
-        <article class="card">
-          <strong>{total_stars:,}</strong>
-          <p>Total stars across current snapshot</p>
+        <article class=\"rounded-3xl border border-slate-200 bg-white p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-slate-500\">Total Stars</p>
+          <p class=\"mt-4 text-3xl font-black text-slate-950\">{total_stars:,}</p>
+          <p class=\"mt-2 text-sm text-slate-600\">Combined stars across the current portfolio.</p>
         </article>
-        <article class="card">
-          <strong>{avg_stars:,}</strong>
-          <p>Average stars per repository</p>
+        <article class=\"rounded-3xl border border-slate-200 bg-white p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-slate-500\">Average</p>
+          <p class=\"mt-4 text-3xl font-black text-slate-950\">{avg_stars:,}</p>
+          <p class=\"mt-2 text-sm text-slate-600\">Average stars per repository.</p>
         </article>
-        <article class="card">
-          <strong>{escape(top_repo['full_name'])}</strong>
-          <p>Top repository with {top_repo['stargazers_count']:,} stars</p>
+        <article class=\"rounded-3xl border border-slate-200 bg-slate-950 p-5 text-white\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-slate-300\">Leader</p>
+          <p class=\"mt-4 text-2xl font-black\">{top_repo["full_name"]}</p>
+          <p class=\"mt-2 text-sm text-slate-300\">{top_repo["stargazers_count"]:,} stars right now.</p>
         </article>
       </div>
-      <div class="grid">
-        <article class="card">
-          <strong>{_format_delta(total_today)}</strong>
-          <p>Total change vs previous snapshot</p>
+
+      <div class=\"mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4\">
+        <article class=\"rounded-3xl border border-emerald-200 bg-emerald-50 p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-emerald-700\">Today</p>
+          <p class=\"mt-4 text-3xl font-black text-emerald-900\">{_format_delta(total_today)}</p>
+          <p class=\"mt-2 text-sm text-emerald-800\">Change versus the previous snapshot.</p>
         </article>
-        <article class="card">
-          <strong>{_format_optional_delta(total_7d)}</strong>
-          <p>Aggregate 7-day growth</p>
+        <article class=\"rounded-3xl border border-orange-200 bg-orange-50 p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-orange-700\">7 Days</p>
+          <p class=\"mt-4 text-3xl font-black text-orange-900\">{_format_optional_delta(total_7d)}</p>
+          <p class=\"mt-2 text-sm text-orange-800\">Aggregate weekly growth.</p>
         </article>
-        <article class="card">
-          <strong>{_format_optional_delta(total_30d)}</strong>
-          <p>Aggregate 30-day growth</p>
+        <article class=\"rounded-3xl border border-cyan-200 bg-cyan-50 p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-cyan-700\">30 Days</p>
+          <p class=\"mt-4 text-3xl font-black text-cyan-900\">{_format_optional_delta(total_30d)}</p>
+          <p class=\"mt-2 text-sm text-cyan-800\">Aggregate monthly growth.</p>
         </article>
-        <article class="card">
-          <strong>{escape(top_growth[0]['full_name']) if top_growth else '-'}</strong>
-          <p>Fastest mover: {_format_best_delta(top_growth[0]) if top_growth else 'n/a'}</p>
+        <article class=\"rounded-3xl border border-slate-200 bg-white p-5\">
+          <p class=\"text-sm font-medium uppercase tracking-[0.18em] text-slate-500\">Fastest Mover</p>
+          <p class=\"mt-4 text-2xl font-black text-slate-950\">{top_growth[0]["full_name"] if top_growth else "-"}</p>
+          <p class=\"mt-2 text-sm text-slate-600\">{_format_best_delta(top_growth[0]) if top_growth else "n/a"} by the best available window.</p>
         </article>
       </div>
     </section>
-    <section class="panel">
-      <h2>Current Stars</h2>
-      <p>Top 15 repositories by current star count.</p>
-      {figure_html}
+
+    <section class=\"mt-6 rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-panel\">
+      <div class=\"flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between\">
+        <div>
+          <h2 class=\"text-2xl font-black text-slate-950\">Snapshot Explorer</h2>
+          <p class=\"mt-2 text-sm text-slate-600\">Tailwind layout, Alpine state, and client-side filters over the embedded SQLite export.</p>
+        </div>
+        <div class=\"grid gap-3 md:grid-cols-3\">
+          <label class=\"block\">
+            <span class=\"mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500\">Search</span>
+            <input
+              x-model=\"search\"
+              type=\"search\"
+              placeholder=\"repo or description\"
+              class=\"w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none ring-0 transition focus:border-orange-300 focus:bg-white\"
+            >
+          </label>
+          <label class=\"block\">
+            <span class=\"mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500\">Language</span>
+            <select
+              x-model=\"language\"
+              class=\"w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white\"
+            >
+              <option value=\"all\">All languages</option>
+              <template x-for=\"item in languages\" :key=\"item\">
+                <option :value=\"item\" x-text=\"item\"></option>
+              </template>
+            </select>
+          </label>
+          <label class=\"block\">
+            <span class=\"mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500\">Sort</span>
+            <select
+              x-model=\"sort\"
+              class=\"w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-orange-300 focus:bg-white\"
+            >
+              <option value=\"stars_desc\">Stars</option>
+              <option value=\"growth_desc\">Growth</option>
+              <option value=\"updated_desc\">Updated</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class=\"mt-6 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white\">
+        <div class=\"border-b border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600\">
+          <span x-text=\"filteredRows.length + ' repos visible'\"></span>
+        </div>
+        <div class=\"overflow-x-auto\">
+          <table class=\"min-w-full divide-y divide-slate-200 text-sm\">
+            <thead class=\"bg-white\">
+              <tr class=\"text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500\">
+                <th class=\"px-4 py-3\">Repository</th>
+                <th class=\"px-4 py-3\">Stars</th>
+                <th class=\"px-4 py-3\">Today</th>
+                <th class=\"px-4 py-3\">7d</th>
+                <th class=\"px-4 py-3\">30d</th>
+                <th class=\"px-4 py-3\">Language</th>
+                <th class=\"px-4 py-3\">Updated</th>
+                <th class=\"px-4 py-3\">Description</th>
+              </tr>
+            </thead>
+            <tbody class=\"divide-y divide-slate-100\">
+              <template x-for=\"row in filteredRows\" :key=\"row.repo_id\">
+                <tr class=\"align-top\">
+                  <td class=\"px-4 py-4\">
+                    <a :href=\"row.html_url\" class=\"font-semibold text-slate-950 hover:text-orange-700\" x-text=\"row.full_name\"></a>
+                  </td>
+                  <td class=\"px-4 py-4 text-slate-700\" x-text=\"row.stargazers_count.toLocaleString()\"></td>
+                  <td class=\"px-4 py-4 font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
+                  <td class=\"px-4 py-4 font-semibold\" :class=\"deltaClass(row.delta_7d)\" x-text=\"deltaText(row.delta_7d)\"></td>
+                  <td class=\"px-4 py-4 font-semibold\" :class=\"deltaClass(row.delta_30d)\" x-text=\"deltaText(row.delta_30d)\"></td>
+                  <td class=\"px-4 py-4 text-slate-700\" x-text=\"row.language || 'Unknown'\"></td>
+                  <td class=\"px-4 py-4 text-slate-500\" x-text=\"row.updated_at || '-'\"></td>
+                  <td class=\"max-w-md px-4 py-4 text-slate-500\" x-text=\"row.description || '-'\"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </section>
-    <section class="split">
-      <section class="panel">
-        <h2>Top Growing</h2>
-        <p>Sorted by the best available window: 30d, then 7d, then previous snapshot.</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Repository</th>
-              <th>Stars</th>
-              <th>Today</th>
-              <th>7d</th>
-              <th>30d</th>
-            </tr>
-          </thead>
-          <tbody>
-            {growth_rows}
-          </tbody>
-        </table>
-      </section>
-      <section class="panel">
-        <h2>Recently Updated</h2>
-        <p>Latest repositories by push or update timestamp in the current snapshot.</p>
-        <table>
-          <thead>
-            <tr>
-              <th>Repository</th>
-              <th>Stars</th>
-              <th>Language</th>
-              <th>Pushed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recent_rows}
-          </tbody>
-        </table>
-      </section>
+
+    <section class=\"mt-6 rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-panel\">
+      <h2 class=\"text-2xl font-black text-slate-950\">Current Stars</h2>
+      <p class=\"mt-2 text-sm text-slate-600\">Top 15 repositories by current star count.</p>
+      <div class=\"mt-4 overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white p-2\">
+        {figure_html}
+      </div>
     </section>
-    <section class="panel">
-      <h2>Snapshot Table</h2>
-      <p>Current repository state with growth deltas loaded directly from SQLite.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Repository</th>
-            <th>Stars</th>
-            <th>Today</th>
-            <th>7d</th>
-            <th>30d</th>
-            <th>Language</th>
-            <th>Updated</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table_rows}
-        </tbody>
-      </table>
+
+    <section class=\"mt-6 grid gap-6 xl:grid-cols-2\">
+      <section x-show=\"showGrowth\" x-transition class=\"rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-panel\">
+        <h2 class=\"text-2xl font-black text-slate-950\">Top Growing</h2>
+        <p class=\"mt-2 text-sm text-slate-600\">Sorted by the best available window: 30d, then 7d, then previous snapshot.</p>
+        <div class=\"mt-4 overflow-x-auto\">
+          <table class=\"min-w-full divide-y divide-slate-200 text-sm\">
+            <thead>
+              <tr class=\"text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500\">
+                <th class=\"px-0 py-3\">Repository</th>
+                <th class=\"px-3 py-3\">Stars</th>
+                <th class=\"px-3 py-3\">Today</th>
+                <th class=\"px-3 py-3\">7d</th>
+                <th class=\"px-3 py-3\">30d</th>
+              </tr>
+            </thead>
+            <tbody class=\"divide-y divide-slate-100\">
+              <template x-for=\"row in topGrowth\" :key=\"row.full_name\">
+                <tr>
+                  <td class=\"py-4\">
+                    <a :href=\"row.html_url\" class=\"font-semibold text-slate-950 hover:text-orange-700\" x-text=\"row.full_name\"></a>
+                  </td>
+                  <td class=\"px-3 py-4 text-slate-700\" x-text=\"row.stargazers_count.toLocaleString()\"></td>
+                  <td class=\"px-3 py-4 font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
+                  <td class=\"px-3 py-4 font-semibold\" :class=\"deltaClass(row.delta_7d)\" x-text=\"deltaText(row.delta_7d)\"></td>
+                  <td class=\"px-3 py-4 font-semibold\" :class=\"deltaClass(row.delta_30d)\" x-text=\"deltaText(row.delta_30d)\"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section x-show=\"showRecent\" x-transition class=\"rounded-[2rem] border border-slate-200 bg-white/85 p-6 shadow-panel\">
+        <h2 class=\"text-2xl font-black text-slate-950\">Recently Updated</h2>
+        <p class=\"mt-2 text-sm text-slate-600\">Latest repositories by push or update timestamp in the current snapshot.</p>
+        <div class=\"mt-4 overflow-x-auto\">
+          <table class=\"min-w-full divide-y divide-slate-200 text-sm\">
+            <thead>
+              <tr class=\"text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500\">
+                <th class=\"px-0 py-3\">Repository</th>
+                <th class=\"px-3 py-3\">Stars</th>
+                <th class=\"px-3 py-3\">Language</th>
+                <th class=\"px-3 py-3\">Pushed</th>
+              </tr>
+            </thead>
+            <tbody class=\"divide-y divide-slate-100\">
+              <template x-for=\"row in recentUpdates\" :key=\"row.full_name\">
+                <tr>
+                  <td class=\"py-4\">
+                    <a :href=\"row.html_url\" class=\"font-semibold text-slate-950 hover:text-cyan-700\" x-text=\"row.full_name\"></a>
+                  </td>
+                  <td class=\"px-3 py-4 text-slate-700\" x-text=\"row.stargazers_count.toLocaleString()\"></td>
+                  <td class=\"px-3 py-4 text-slate-700\" x-text=\"row.language || 'Unknown'\"></td>
+                  <td class=\"px-3 py-4 text-slate-500\" x-text=\"row.pushed_at || row.updated_at || '-'\"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
 </body>
@@ -282,67 +385,17 @@ def _build_html(
 """
 
 
-
-def _build_table_row(row: dict[str, Any]) -> str:
-    description = row["description"] or ""
-    language = row["language"] or "-"
-    updated_at = row["updated_at"] or "-"
-    return (
-        "<tr>"
-        f"<td><a href=\"{escape(row['html_url'])}\">{escape(row['full_name'])}</a></td>"
-        f"<td>{row['stargazers_count']:,}</td>"
-        f"<td>{_render_delta_cell(row['today_delta'])}</td>"
-        f"<td>{_render_delta_cell(row['delta_7d'])}</td>"
-        f"<td>{_render_delta_cell(row['delta_30d'])}</td>"
-        f"<td>{escape(language)}</td>"
-        f"<td>{escape(updated_at)}</td>"
-        f"<td class=\"description\">{escape(description)}</td>"
-        "</tr>"
-    )
-
-
-
-def _build_growth_row(row: dict[str, Any]) -> str:
-    return (
-        "<tr>"
-        f"<td><a href=\"{escape(row['html_url'])}\">{escape(row['full_name'])}</a></td>"
-        f"<td>{row['stargazers_count']:,}</td>"
-        f"<td>{_render_delta_cell(row['today_delta'])}</td>"
-        f"<td>{_render_delta_cell(row['delta_7d'])}</td>"
-        f"<td>{_render_delta_cell(row['delta_30d'])}</td>"
-        "</tr>"
-    )
-
-
-
-def _build_recent_row(row: dict[str, Any]) -> str:
-    language = row["language"] or "-"
-    pushed_at = row["pushed_at"] or row["updated_at"] or "-"
-    return (
-        "<tr>"
-        f"<td><a href=\"{escape(row['html_url'])}\">{escape(row['full_name'])}</a></td>"
-        f"<td>{row['stargazers_count']:,}</td>"
-        f"<td>{escape(language)}</td>"
-        f"<td class=\"subtle\">{escape(pushed_at)}</td>"
-        "</tr>"
-    )
-
-
-
 def _sum_optional(rows: list[dict[str, Any]], key: str) -> int | None:
     values = [row[key] for row in rows if row[key] is not None]
     return sum(values) if values else None
-
 
 
 def _format_delta(value: int) -> str:
     return f"{value:+,}"
 
 
-
 def _format_optional_delta(value: int | None) -> str:
     return "n/a" if value is None else _format_delta(value)
-
 
 
 def _format_best_delta(row: dict[str, Any]) -> str:
@@ -352,12 +405,3 @@ def _format_best_delta(row: dict[str, Any]) -> str:
     if best is None:
         best = row["today_delta"]
     return _format_optional_delta(best)
-
-
-
-def _render_delta_cell(value: int | None) -> str:
-    if value is None:
-        return '<span class="delta na">n/a</span>'
-    if value == 0:
-        return '<span class="delta flat">+0</span>'
-    return f'<span class="delta">{_format_delta(value)}</span>'

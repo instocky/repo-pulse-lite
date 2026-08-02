@@ -1,90 +1,82 @@
-# Plan — Repo-Pulse Lite v1
+﻿# Plan - Repo-Pulse Lite v1
 
-Тикеты построены вертикально: каждый выдаёт законченный пользовательский результат, а не только очередной архитектурный слой. После тикета 01 проект уже полезен.
+Tickets are vertical slices: each one should produce a user-visible result, not another architecture layer.
 
 ## Tickets
 
-### 01 — Snapshot → pulse.db (M)
+### 01 - Snapshot -> pulse.db (M)
 
-Первая поставка сразу работает end-to-end.
+End-to-end first delivery:
 
-```
+```text
 scaffold (pyproject, sqlite init)
-   ↓
-fetch_starred() / fetch_repo()   [github.py]
-   ↓
-bootstrap() / insert_snapshot()  [db.py]
-   ↓
-CLI: python main.py snapshot
+  -> fetch_starred() [github.py]
+  -> bootstrap() / insert_snapshot() [db.py]
+  -> CLI: python main.py snapshot
 ```
 
-Результат: `pulse.db` с одним снимком starred-репозиториев.
+Result: `pulse.db` with one snapshot of starred repositories.
 
-### 02 — Report → report.html (M)
+### 02 - Report -> report.html (M)
 
-```
-select_history()          [db.py]
-   ↓
-Current Stars (текущий срез)
-   ↓
-Plotly → report.html      [report.py]
-   ↓
-CLI: python main.py report
+```text
+select_history() [db.py]
+  -> current stars
+  -> Plotly -> report.html [report.py]
+  -> CLI: python main.py report
 ```
 
-Результат: открываемый локально HTML с текущим состоянием.
+Result: a locally openable HTML report built from SQLite.
 
-### 03 — Growth Analytics (S)
+### 03 - Growth Analytics (S)
 
-```
+```text
 SQL: today / 7d / 30d / top / recent
-   ↓
-добавляется в report.html
+  -> report.html
 ```
 
-Результат: отчёт показывает динамику, а не только срез — закрывает ключевую Problem из PRD.
+Result: the report shows trends, not just the latest snapshot.
 
-### 04 — CLI Polish (XS)
+### 04 - CLI Polish (XS)
 
-```
-snapshot
-report
-all
-```
+Commands:
 
-где:
+- `python main.py snapshot` -> updates only `pulse.db`
+- `python main.py report` -> builds `report.html` from the existing `pulse.db`
+- `python main.py all` -> runs `snapshot`, then `report`
 
-```
-all
-  ↓
-snapshot
-  ↓
-report
-```
+Result: one command for the full cycle.
 
-Результат: одна команда для полного цикла (см. Success Criteria в PRD).
+### 05 - Tests (S)
 
-### 05 — Tests (S)
-
-pytest, только:
+Pytest coverage is limited to:
 
 - GitHub
 - DB
 - Analytics
 
-### 06 — Documentation (XS)
+Completion criteria:
 
-README:
+- `pytest` passes without collection errors
+- imports work from the project root
+- baseline scenarios for `github.py`, `db.py`, and analytics SQL are covered
+
+### 06 - Documentation (XS)
+
+Documentation covers:
 
 - Quick Start
-- Архитектура
+- Architecture
+- CLI contract
 
-## Definition of Done (сводка)
+## Definition of Done
 
-- ≤ 5 python-модулей (+ `config.py` как служебный)
-- ≤ 1000 LOC (без тестов и README)
-- ≤ 15 runtime-зависимостей
-- `report.html` cold start < 2 сек (из уже собранного `pulse.db`)
-- `python main.py all` → `pulse.db` + `report.html`
-- отчёт без веб-сервера и без доп. запросов к GitHub
-- никаких DTO / Repository / Service Layer / Web Framework / Chart Abstraction
+- <= 5 Python modules, plus `config.py`
+- <= 1000 LOC excluding tests and README
+- <= 15 runtime dependencies
+- `report.html` cold start < 2 seconds from an existing `pulse.db`
+- `python main.py all` -> `pulse.db` + `report.html`
+- `python main.py snapshot` -> only `pulse.db`
+- report works without a web server and without extra GitHub requests
+- report frontend uses Tailwind CSS + Alpine.js for client-side filters, sorting, and toggles
+- no DTO / Repository / Service Layer / Web Framework / Chart Abstraction
