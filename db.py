@@ -29,9 +29,40 @@ CREATE TABLE IF NOT EXISTS snapshots (
 """
 
 
+GROWTH_CTES = """
+WITH latest_at AS (
+    SELECT MAX(snapshot_at) AS snapshot_at
+    FROM snapshots
+),
+previous_at AS (
+    SELECT MAX(snapshot_at) AS snapshot_at
+    FROM snapshots
+    WHERE snapshot_at < (SELECT snapshot_at FROM latest_at)
+),
+week_at AS (
+    SELECT MAX(snapshot_at) AS snapshot_at
+    FROM snapshots
+    WHERE julianday(snapshot_at) <= (
+        SELECT julianday(snapshot_at) - 7
+        FROM latest_at
+    )
+),
+month_at AS (
+    SELECT MAX(snapshot_at) AS snapshot_at
+    FROM snapshots
+    WHERE julianday(snapshot_at) <= (
+        SELECT julianday(snapshot_at) - 30
+        FROM latest_at
+    )
+)
+"""
+
+
+
 def bootstrap(database_path: Path) -> None:
     with sqlite3.connect(database_path) as connection:
         connection.execute(SCHEMA)
+
 
 
 def insert_snapshot(database_path: Path, repos: list[dict[str, Any]]) -> str:
@@ -65,6 +96,7 @@ def insert_snapshot(database_path: Path, repos: list[dict[str, Any]]) -> str:
     return snapshot_at
 
 
+
 def select_latest_snapshot(database_path: Path) -> list[dict[str, Any]]:
     with sqlite3.connect(database_path) as connection:
         connection.row_factory = sqlite3.Row
@@ -93,6 +125,129 @@ def select_latest_snapshot(database_path: Path) -> list[dict[str, Any]]:
         ).fetchall()
 
     return [dict(row) for row in rows]
+
+
+
+def select_latest_growth(database_path: Path) -> list[dict[str, Any]]:
+    with sqlite3.connect(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            f"""
+            {GROWTH_CTES}
+            SELECT
+                latest.snapshot_at,
+                latest.repo_id,
+                latest.full_name,
+                latest.name,
+                latest.owner_login,
+                latest.html_url,
+                latest.description,
+                latest.language,
+                latest.stargazers_count,
+                latest.forks_count,
+                latest.watchers_count,
+                latest.open_issues_count,
+                latest.updated_at,
+                latest.pushed_at,
+                latest.latest_release_published_at,
+                latest.stargazers_count - COALESCE(previous.stargazers_count, latest.stargazers_count) AS today_delta,
+                CASE
+                    WHEN week.snapshot_at IS NULL THEN NULL
+                    ELSE latest.stargazers_count - week.stargazers_count
+                END AS delta_7d,
+                CASE
+                    WHEN month.snapshot_at IS NULL THEN NULL
+                    ELSE latest.stargazers_count - month.stargazers_count
+                END AS delta_30d
+            FROM snapshots AS latest
+            LEFT JOIN snapshots AS previous
+                ON previous.repo_id = latest.repo_id
+               AND previous.snapshot_at = (SELECT snapshot_at FROM previous_at)
+            LEFT JOIN snapshots AS week
+                ON week.repo_id = latest.repo_id
+               AND week.snapshot_at = (SELECT snapshot_at FROM week_at)
+            LEFT JOIN snapshots AS month
+                ON month.repo_id = latest.repo_id
+               AND month.snapshot_at = (SELECT snapshot_at FROM month_at)
+            WHERE latest.snapshot_at = (SELECT snapshot_at FROM latest_at)
+            ORDER BY latest.stargazers_count DESC, latest.full_name ASC
+            """
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+
+def select_top_growth(database_path: Path, limit: int = 10) -> list[dict[str, Any]]:
+    with sqlite3.connect(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            f"""
+            {GROWTH_CTES}
+            SELECT
+                latest.full_name,
+                latest.html_url,
+                latest.stargazers_count,
+                latest.stargazers_count - COALESCE(previous.stargazers_count, latest.stargazers_count) AS today_delta,
+                CASE
+                    WHEN week.snapshot_at IS NULL THEN NULL
+                    ELSE latest.stargazers_count - week.stargazers_count
+                END AS delta_7d,
+                CASE
+                    WHEN month.snapshot_at IS NULL THEN NULL
+                    ELSE latest.stargazers_count - month.stargazers_count
+                END AS delta_30d
+            FROM snapshots AS latest
+            LEFT JOIN snapshots AS previous
+                ON previous.repo_id = latest.repo_id
+               AND previous.snapshot_at = (SELECT snapshot_at FROM previous_at)
+            LEFT JOIN snapshots AS week
+                ON week.repo_id = latest.repo_id
+               AND week.snapshot_at = (SELECT snapshot_at FROM week_at)
+            LEFT JOIN snapshots AS month
+                ON month.repo_id = latest.repo_id
+               AND month.snapshot_at = (SELECT snapshot_at FROM month_at)
+            WHERE latest.snapshot_at = (SELECT snapshot_at FROM latest_at)
+            ORDER BY
+                COALESCE(
+                    CASE WHEN delta_30d > 0 THEN delta_30d END,
+                    CASE WHEN delta_7d > 0 THEN delta_7d END,
+                    CASE WHEN today_delta > 0 THEN today_delta END,
+                    0
+                ) DESC,
+                latest.stargazers_count DESC,
+                latest.full_name ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
+
+
+def select_recently_updated(database_path: Path, limit: int = 10) -> list[dict[str, Any]]:
+    with sqlite3.connect(database_path) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            """
+            SELECT
+                full_name,
+                html_url,
+                pushed_at,
+                updated_at,
+                language,
+                stargazers_count
+            FROM snapshots
+            WHERE snapshot_at = (SELECT MAX(snapshot_at) FROM snapshots)
+            ORDER BY COALESCE(pushed_at, updated_at) DESC, full_name ASC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]
+
 
 
 def _snapshot_row(snapshot_at: str, repo: dict[str, Any]) -> tuple[Any, ...]:
