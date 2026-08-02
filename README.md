@@ -1,6 +1,6 @@
 # Repo-Pulse Lite
 
-Локальный инструмент для ежедневных snapshot'ов `starred`-репозиториев GitHub и генерации статического HTML-отчёта без веб-сервера.
+Локальный инструмент для ежедневных snapshot'ов `starred`-репозиториев GitHub и генерации статического HTML-отчёта.
 
 ## Quick Start
 
@@ -11,15 +11,52 @@
 
 ### 2. Установка
 
+Клонирование репозитория:
+
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
+git clone <your-repo-url>
+cd repo-pulse-lite
+```
+
+Создание виртуального окружения и установка зависимостей.
+
+Linux/macOS:
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
 pip install -e .[dev]
 ```
+
+Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+pip install -e .[dev]
+```
+
+Проект использует плоский набор top-level модулей. Для editable install в `pyproject.toml` уже явно прописан блок `tool.setuptools.py-modules`, поэтому `pip install -e .` должен проходить без дополнительной ручной настройки.
+
+Проверка версии Python внутри окружения:
+
+```bash
+python --version
+```
+
+Ожидается `Python 3.11.x` или выше.
 
 ### 3. Конфигурация
 
 Создайте `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Пример содержимого:
 
 ```env
 GITHUB_TOKEN=ghp_xxx
@@ -56,7 +93,19 @@ python main.py all
 Результат:
 
 - `pulse.db` — история snapshot'ов
-- `report.html` — статический dashboard, открывается локально
+- `report.html` — статический dashboard
+
+Важно: `report.html` не полностью self-contained. Внутри используются внешние CDN-скрипты `cdn.tailwindcss.com` и `cdn.jsdelivr.net`, поэтому для полной работы интерфейса у клиента должен быть доступ в интернет.
+
+## Deployment
+
+Для развёртывания на Ubuntu 22.04 с Nginx, HTTPS и автоматизацией через Cron см. [deploy.md](deploy.md).
+
+Ключевые моменты из production-установки:
+
+- на Ubuntu 22.04 нужен именно Python 3.11+, а не системный Python 3.10;
+- при деплое в существующую директорию используйте `git clone <your-repo-url> .`, иначе Git создаст вложенную папку;
+- если деплой делается под `root`, то `.env`, `.venv` и cron дальше тоже будут обслуживаться от `root`.
 
 ## Architecture
 
