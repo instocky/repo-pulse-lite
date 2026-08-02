@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -58,18 +59,16 @@ month_at AS (
 """
 
 
-
 def bootstrap(database_path: Path) -> None:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.execute(SCHEMA)
-
 
 
 def insert_snapshot(database_path: Path, repos: list[dict[str, Any]]) -> str:
     snapshot_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     rows = [_snapshot_row(snapshot_at, repo) for repo in repos]
 
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.executemany(
             """
             INSERT INTO snapshots (
@@ -92,13 +91,13 @@ def insert_snapshot(database_path: Path, repos: list[dict[str, Any]]) -> str:
             """,
             rows,
         )
+        connection.commit()
 
     return snapshot_at
 
 
-
 def select_latest_snapshot(database_path: Path) -> list[dict[str, Any]]:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             """
@@ -127,9 +126,8 @@ def select_latest_snapshot(database_path: Path) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-
 def select_latest_growth(database_path: Path) -> list[dict[str, Any]]:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             f"""
@@ -177,9 +175,8 @@ def select_latest_growth(database_path: Path) -> list[dict[str, Any]]:
     return [dict(row) for row in rows]
 
 
-
 def select_top_growth(database_path: Path, limit: int = 10) -> list[dict[str, Any]]:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             f"""
@@ -225,9 +222,8 @@ def select_top_growth(database_path: Path, limit: int = 10) -> list[dict[str, An
     return [dict(row) for row in rows]
 
 
-
 def select_recently_updated(database_path: Path, limit: int = 10) -> list[dict[str, Any]]:
-    with sqlite3.connect(database_path) as connection:
+    with closing(sqlite3.connect(database_path)) as connection:
         connection.row_factory = sqlite3.Row
         rows = connection.execute(
             """
@@ -247,7 +243,6 @@ def select_recently_updated(database_path: Path, limit: int = 10) -> list[dict[s
         ).fetchall()
 
     return [dict(row) for row in rows]
-
 
 
 def _snapshot_row(snapshot_at: str, repo: dict[str, Any]) -> tuple[Any, ...]:
