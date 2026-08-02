@@ -2,6 +2,11 @@
 notes.md
 .env
 tmp/
+.serena/
+
+# === Runtime ===
+pulse.db
+report.html
 
 # === Python ===
 __pycache__/
