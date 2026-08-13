@@ -123,7 +123,9 @@ def _build_html(
         }},
         get filteredRows() {{
           const term = this.search.trim().toLowerCase();
+          const useRelative = this.sort === \"growth_pct_desc\";
           const items = this.rows.filter((row) => {{
+            if (useRelative && this.relativeGrowth(row) === null) return false;
             const matchesSearch =
               !term ||
               row.full_name.toLowerCase().includes(term) ||
@@ -137,6 +139,9 @@ def _build_html(
           if (this.sort === \"growth_desc\") {{
             return this.bestDelta(right) - this.bestDelta(left) || right.stargazers_count - left.stargazers_count;
           }}
+          if (this.sort === \"growth_pct_desc\") {{
+            return this.relativeGrowth(right) - this.relativeGrowth(left);
+          }}
           if (this.sort === \"updated_desc\") {{
             return (right.updated_at || \"\").localeCompare(left.updated_at || \"\") || left.full_name.localeCompare(right.full_name);
           }}
@@ -144,6 +149,11 @@ def _build_html(
         }},
         bestDelta(row) {{
           return row.delta_30d ?? row.delta_7d ?? row.today_delta ?? -1;
+        }},
+        relativeGrowth(row) {{
+          const stars = row.stargazers_count;
+          if (!row.delta_7d || stars <= 0) return null;
+          return row.delta_7d / stars;
         }},
         deltaClass(value) {{
           if (value === null || value === undefined) return \"text-clay\";
@@ -276,6 +286,7 @@ def _build_html(
             >
               <option value=\"stars_desc\">Stars</option>
               <option value=\"growth_desc\">Growth</option>
+              <option value=\"growth_pct_desc\">Growth %</option>
               <option value=\"updated_desc\">Updated</option>
             </select>
           </label>
