@@ -402,9 +402,9 @@ def _build_html(
                 </th>
               </tr>
             </thead>
-            <tbody class="[&>tr:hover]:bg-base-200/40">
+            <tbody>
               <template x-for=\"row in filteredRows\" :key=\"row.repo_id\">
-                <tr>
+                <tr class=\"hover:bg-base-200/40\">
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold\" x-text=\"row.full_name\"></a>
                   </td>
@@ -479,9 +479,9 @@ def _build_html(
                 </th>
               </tr>
             </thead>
-            <tbody class="[&>tr:hover]:bg-base-200/40">
+            <tbody>
               <template x-for=\"row in topGrowth\" :key=\"row.full_name\">
-                <tr>
+                <tr class=\"hover:bg-base-200/40\">
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold\" x-text=\"row.full_name\"></a>
                   </td>
@@ -529,9 +529,9 @@ def _build_html(
                 </th>
               </tr>
             </thead>
-            <tbody class="[&>tr:hover]:bg-base-200/40">
+            <tbody>
               <template x-for=\"row in recentUpdates\" :key=\"row.full_name\">
-                <tr>
+                <tr class=\"hover:bg-base-200/40\">
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-info font-semibold\" x-text=\"row.full_name\"></a>
                   </td>
