@@ -364,18 +364,12 @@ def _build_html(
                   <td x-text=\"row.language || 'Unknown'\"></td>
                   <td class=\"text-base-content/60\" x-text=\"formatDate(row.updated_at) || '-'\"></td>
                   <td class=\"max-w-xs\">
-                    <div x-data=\"{{ needsTip: false }}\"
-                         x-init=\"requestAnimationFrame(() => {{
-                           const el = $refs.desc;
-                           if (!el) return;
-                           this.needsTip = el.scrollHeight > el.clientHeight;
-                           if (!this.needsTip && (row.description || '').length > 80) {{
-                             this.needsTip = true;
-                           }}
-                         }})\"
+                    <div x-data=\"{{
+                      get needsTip() {{ return (row.description || '').length > 80; }}
+                    }}\"
                          :class=\"needsTip ? 'tooltip tooltip-left w-full cursor-help' : 'w-full'\"
                          :data-tip=\"needsTip ? (row.description || '') : ''\">
-                      <p x-ref=\"desc\" class=\"line-clamp-2 text-base-content/70\" x-text=\"row.description || '-'\"></p>
+                      <p class=\"line-clamp-2 text-base-content/70\" x-text=\"row.description || '-'\"></p>
                     </div>
                   </td>
                 </tr>
