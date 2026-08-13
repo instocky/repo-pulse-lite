@@ -75,6 +75,13 @@ def _build_html(
             f"Commit Date: {git_metadata['committed_at']}",
         ]
         tooltip_title = html.escape("\n".join(tooltip_lines), quote=True)
+    leader_desc = (top_repo.get("description") or "").strip()
+    leader_tip_class = " tooltip tooltip-top cursor-help" if leader_desc else ""
+    leader_tip_attr = f' data-tip="{html.escape(leader_desc, quote=True)}"' if leader_desc else ""
+    mover_desc = (top_growth[0].get("description") if top_growth else "") or ""
+    mover_desc = mover_desc.strip()
+    mover_tip_class = " tooltip tooltip-top cursor-help" if mover_desc else ""
+    mover_tip_attr = f' data-tip="{html.escape(mover_desc, quote=True)}"' if mover_desc else ""
     payload = json.dumps(
         {
             "rows": rows,
@@ -267,7 +274,7 @@ def _build_html(
         </div>
         <div class=\"stat\">
           <div class=\"stat-title\">Leader</div>
-          <div class=\"stat-value text-2xl\">{top_repo["full_name"]}</div>
+          <div class=\"stat-value text-2xl{leader_tip_class}\"{leader_tip_attr}>{top_repo["full_name"]}</div>
           <div class=\"stat-desc\">{top_repo["stargazers_count"]:,} stars right now.</div>
         </div>
       </div>
@@ -290,7 +297,7 @@ def _build_html(
         </div>
         <div class=\"stat\">
           <div class=\"stat-title\">Fastest Mover</div>
-          <div class=\"stat-value text-2xl\">{top_growth[0]["full_name"] if top_growth else "-"}</div>
+          <div class=\"stat-value text-2xl{mover_tip_class}\"{mover_tip_attr}>{top_growth[0]["full_name"] if top_growth else "-"}</div>
           <div class=\"stat-desc\">{_format_best_delta(top_growth[0]) if top_growth else "n/a"} by the best available window.</div>
         </div>
       </div>
@@ -338,17 +345,61 @@ def _build_html(
           <span x-text=\"filteredRows.length + ' repos visible'\"></span>
         </div>
         <div class=\"overflow-x-auto\">
-          <table class=\"table table-zebra\">
+          <table class=\"table table-zebra table-pin-rows table-hover\">
             <thead class=\"text-sm font-semibold text-base-content/80\">
               <tr>
-                <th>Repository</th>
-                <th>Stars</th>
-                <th>Today</th>
-                <th>7d</th>
-                <th>30d</th>
-                <th>Language</th>
-                <th>Updated</th>
-                <th>Description</th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg>
+                    Repository
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg>
+                    Stars
+                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'stars_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
+                    Today
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
+                    7d
+                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'growth_pct_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
+                    30d
+                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'growth_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"16 18 22 12 16 6\"/><polyline points=\"8 6 2 12 8 18\"/></svg>
+                    Language
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/></svg>
+                    Updated
+                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'updated_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/><line x1=\"16\" y1=\"13\" x2=\"8\" y2=\"13\"/><line x1=\"16\" y1=\"17\" x2=\"8\" y2=\"17\"/></svg>
+                    Description
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -393,14 +444,39 @@ def _build_html(
         <h2 class=\"text-2xl font-black\">Top Growing</h2>
         <p class=\"mt-2 text-sm text-base-content/70\">Sorted by the best available window: 30d, then 7d, then previous snapshot.</p>
         <div class=\"mt-4 overflow-x-auto\">
-          <table class=\"table table-zebra\">
+          <table class=\"table table-zebra table-pin-rows table-hover\">
             <thead class=\"text-sm font-semibold text-base-content/80\">
               <tr>
-                <th>Repository</th>
-                <th>Stars</th>
-                <th>Today</th>
-                <th>7d</th>
-                <th>30d</th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg>
+                    Repository
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg>
+                    Stars
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
+                    Today
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
+                    7d
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
+                    30d
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -424,13 +500,33 @@ def _build_html(
         <h2 class=\"text-2xl font-black\">Recently Updated</h2>
         <p class=\"mt-2 text-sm text-base-content/70\">Latest repositories by push or update timestamp in the current snapshot.</p>
         <div class=\"mt-4 overflow-x-auto\">
-          <table class=\"table table-zebra\">
+          <table class=\"table table-zebra table-pin-rows table-hover\">
             <thead class=\"text-sm font-semibold text-base-content/80\">
               <tr>
-                <th>Repository</th>
-                <th>Stars</th>
-                <th>Language</th>
-                <th>Pushed</th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71\"/><path d=\"M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71\"/></svg>
+                    Repository
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg>
+                    Stars
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"16 18 22 12 16 6\"/><polyline points=\"8 6 2 12 8 18\"/></svg>
+                    Language
+                  </span>
+                </th>
+                <th>
+                  <span class=\"inline-flex items-center gap-1.5\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/></svg>
+                    Pushed
+                  </span>
+                </th>
               </tr>
             </thead>
             <tbody>
