@@ -193,7 +193,7 @@ def _build_html(
     x-data=\"repoPulseReport(JSON.parse(document.getElementById('report-data').textContent))\"
     class=\"mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8\"
   >
-    <section class=\"relative rounded-2xl bg-base-100 p-6 shadow-xl md:p-8\">
+    <section class=\"relative rounded-xl bg-base-100 p-6 shadow-xl md:p-8\">
       <label
         class=\"swap swap-rotate btn btn-ghost btn-sm btn-circle absolute right-4 top-4\"
         :aria-label=\"isDark ? 'Switch to light theme' : 'Switch to dark theme'\"
@@ -272,7 +272,7 @@ def _build_html(
         </div>
       </div>
 
-      <div class=\"stats stats-vertical w-full bg-base-100 shadow lg:stats-horizontal\">
+      <div class=\"mt-4 stats stats-vertical w-full bg-base-100 shadow lg:stats-horizontal\">
         <div class=\"stat\">
           <div class=\"stat-title\">Today</div>
           <div class=\"stat-value text-success\">{_format_delta(total_today)}</div>
@@ -296,7 +296,7 @@ def _build_html(
       </div>
     </section>
 
-    <section class=\"rounded-2xl bg-base-100 p-6 shadow-xl\">
+    <section class=\"rounded-xl bg-base-100 p-6 shadow-xl\">
       <div class=\"flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between\">
         <div>
           <h2 class=\"text-2xl font-black\">Snapshot Explorer</h2>
@@ -333,7 +333,7 @@ def _build_html(
         </div>
       </div>
 
-      <div class=\"mt-6 overflow-hidden rounded-xl border border-base-300 bg-base-100\">
+      <div class=\"mt-6 overflow-hidden rounded-lg border border-base-300 bg-base-100\">
         <div class=\"border-b border-base-300 bg-base-200 px-4 py-2 text-sm text-base-content/70\">
           <span x-text=\"filteredRows.length + ' repos visible'\"></span>
         </div>
@@ -376,16 +376,16 @@ def _build_html(
       </div>
     </section>
 
-    <section class=\"rounded-2xl bg-base-100 p-6 shadow-xl\">
+    <section class=\"rounded-xl bg-base-100 p-6 shadow-xl\">
       <h2 class=\"text-2xl font-black\">Current Stars</h2>
       <p class=\"mt-2 text-sm text-base-content/70\">Top 15 repositories by current star count.</p>
-      <div class=\"mt-4 overflow-hidden rounded-xl border border-base-300 bg-base-100 p-2\">
+      <div class=\"mt-4 overflow-hidden rounded-lg border border-base-300 bg-base-100 p-2\">
         {figure_html}
       </div>
     </section>
 
     <section class=\"grid gap-6 xl:grid-cols-2\">
-      <section x-show=\"showGrowth\" x-transition class=\"rounded-2xl bg-base-100 p-6 shadow-xl\">
+      <section x-show=\"showGrowth\" x-transition class=\"rounded-xl bg-base-100 p-6 shadow-xl\">
         <h2 class=\"text-2xl font-black\">Top Growing</h2>
         <p class=\"mt-2 text-sm text-base-content/70\">Sorted by the best available window: 30d, then 7d, then previous snapshot.</p>
         <div class=\"mt-4 overflow-x-auto\">
@@ -416,7 +416,7 @@ def _build_html(
         </div>
       </section>
 
-      <section x-show=\"showRecent\" x-transition class=\"rounded-2xl bg-base-100 p-6 shadow-xl\">
+      <section x-show=\"showRecent\" x-transition class=\"rounded-xl bg-base-100 p-6 shadow-xl\">
         <h2 class=\"text-2xl font-black\">Recently Updated</h2>
         <p class=\"mt-2 text-sm text-base-content/70\">Latest repositories by push or update timestamp in the current snapshot.</p>
         <div class=\"mt-4 overflow-x-auto\">
