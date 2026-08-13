@@ -340,13 +340,13 @@ def _build_html(
         </div>
       </div>
 
-      <div class=\"mt-6 overflow-hidden rounded-lg border border-base-300 bg-base-100\">
+      <div class=\"mt-6 overflow-clip rounded-lg border border-base-300 bg-base-100\">
         <div class=\"border-b border-base-300 bg-base-200 px-4 py-2 text-sm text-base-content/70\">
           <span x-text=\"filteredRows.length + ' repos visible'\"></span>
         </div>
-        <div class=\"overflow-x-auto\">
-          <table class=\"table table-zebra table-pin-rows table-hover\">
-            <thead class=\"text-sm font-semibold text-base-content/80\">
+        <div>
+          <table class=\"table table-zebra\">
+            <thead class=\"sticky top-0 z-10 bg-base-100 text-sm font-semibold text-base-content/80\">
               <tr>
                 <th>
                   <span class=\"inline-flex items-center gap-1.5\">
@@ -402,7 +402,7 @@ def _build_html(
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="[&>tr:hover]:bg-base-200/40">
               <template x-for=\"row in filteredRows\" :key=\"row.repo_id\">
                 <tr>
                   <td>
@@ -444,8 +444,8 @@ def _build_html(
         <h2 class=\"text-2xl font-black\">Top Growing</h2>
         <p class=\"mt-2 text-sm text-base-content/70\">Sorted by the best available window: 30d, then 7d, then previous snapshot.</p>
         <div class=\"mt-4 overflow-x-auto\">
-          <table class=\"table table-zebra table-pin-rows table-hover\">
-            <thead class=\"text-sm font-semibold text-base-content/80\">
+          <table class=\"table table-zebra\">
+            <thead class=\"sticky top-0 z-10 bg-base-100 text-sm font-semibold text-base-content/80\">
               <tr>
                 <th>
                   <span class=\"inline-flex items-center gap-1.5\">
@@ -479,7 +479,7 @@ def _build_html(
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="[&>tr:hover]:bg-base-200/40">
               <template x-for=\"row in topGrowth\" :key=\"row.full_name\">
                 <tr>
                   <td>
@@ -500,8 +500,8 @@ def _build_html(
         <h2 class=\"text-2xl font-black\">Recently Updated</h2>
         <p class=\"mt-2 text-sm text-base-content/70\">Latest repositories by push or update timestamp in the current snapshot.</p>
         <div class=\"mt-4 overflow-x-auto\">
-          <table class=\"table table-zebra table-pin-rows table-hover\">
-            <thead class=\"text-sm font-semibold text-base-content/80\">
+          <table class=\"table table-zebra\">
+            <thead class=\"sticky top-0 z-10 bg-base-100 text-sm font-semibold text-base-content/80\">
               <tr>
                 <th>
                   <span class=\"inline-flex items-center gap-1.5\">
@@ -529,7 +529,7 @@ def _build_html(
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="[&>tr:hover]:bg-base-200/40">
               <template x-for=\"row in recentUpdates\" :key=\"row.full_name\">
                 <tr>
                   <td>
