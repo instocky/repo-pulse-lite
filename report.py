@@ -256,7 +256,7 @@ def _build_html(
         </div>
       </div>
 
-      <div class=\"mt-8 stats stats-vertical w-full bg-base-100 shadow lg:stats-horizontal\">
+      <div class=\"mt-8 stats stats-vertical w-full overflow-x-hidden rounded-xl bg-base-100 shadow lg:stats-horizontal\">
         <div class=\"stat\">
           <div class=\"stat-title\">Repos</div>
           <div class=\"stat-value\">{len(rows)}</div>
@@ -279,7 +279,7 @@ def _build_html(
         </div>
       </div>
 
-      <div class=\"mt-4 stats stats-vertical w-full bg-base-100 shadow lg:stats-horizontal\">
+      <div class=\"mt-4 stats stats-vertical w-full overflow-x-hidden rounded-xl bg-base-100 shadow lg:stats-horizontal\">
         <div class=\"stat\">
           <div class=\"stat-title\">Today</div>
           <div class=\"stat-value text-success\">{_format_delta(total_today)}</div>
