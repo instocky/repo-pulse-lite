@@ -364,8 +364,11 @@ def _build_html(
                   <td x-text=\"row.language || 'Unknown'\"></td>
                   <td class=\"text-base-content/60\" x-text=\"formatDate(row.updated_at) || '-'\"></td>
                   <td class=\"max-w-xs\">
-                    <div class=\"tooltip tooltip-left w-full\" :data-tip=\"row.description || 'No description'\">
-                      <p class=\"line-clamp-2 cursor-help text-base-content/70\" x-text=\"row.description || '-'\"></p>
+                    <div x-data=\"{{ needsTip: false }}\"
+                         x-init=\"$nextTick(() => {{ const el = $refs.desc; if (el) this.needsTip = el.scrollHeight > el.clientHeight; }})\"
+                         :class=\"needsTip ? 'tooltip tooltip-left w-full cursor-help' : 'w-full'\"
+                         :data-tip=\"needsTip ? (row.description || '') : ''\">
+                      <p x-ref=\"desc\" class=\"line-clamp-2 text-base-content/70\" x-text=\"row.description || '-'\"></p>
                     </div>
                   </td>
                 </tr>
