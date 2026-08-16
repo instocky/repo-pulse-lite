@@ -120,6 +120,7 @@ def _build_html(
         recentUpdates: payload.recent_updates,
         search: \"\",
         language: \"all\",
+        showGrowthPct: false,
         sortKey: \"delta_30d\",
         sortDir: \"desc\",
         showGrowth: true,
@@ -141,6 +142,15 @@ def _build_html(
             const dir = url.searchParams.get('dir');
             if (key && this.sortableKeys.includes(key)) this.sortKey = key;
             if (dir === 'asc' || dir === 'desc') this.sortDir = dir;
+            if (url.searchParams.get('growth') === '1') this.showGrowthPct = true;
+          }} catch (e) {{ /* no-op */ }}
+        }},
+        syncGrowthToUrl() {{
+          try {{
+            const url = new URL(window.location.href);
+            if (this.showGrowthPct) url.searchParams.set('growth', '1');
+            else url.searchParams.delete('growth');
+            history.replaceState({{}}, '', url);
           }} catch (e) {{ /* no-op */ }}
         }},
         syncSortToUrl() {{
@@ -242,6 +252,25 @@ def _build_html(
         deltaText(value) {{
           if (value === null || value === undefined) return \"n/a\";
           return `${{value >= 0 ? \"+\" : \"\"}}${{value.toLocaleString()}}`;
+        }},
+        relativeGrowth(row) {{
+          if (row.delta_7d == null) return null;
+          if (!row.stargazers_count || row.stargazers_count <= 0) return null;
+          return row.delta_7d / row.stargazers_count;
+        }},
+        growthPctText(row) {{
+          const g = this.relativeGrowth(row);
+          if (g === null) return \"n/a\";
+          const pct = g * 100;
+          const sign = pct >= 0 ? \"+\" : \"\";
+          return `${{sign}}${{pct.toFixed(2)}}%`;
+        }},
+        growthPctClass(row) {{
+          const g = this.relativeGrowth(row);
+          if (g === null) return \"text-base-content\\/40\";
+          if (g > 0) return \"text-success\";
+          if (g < 0) return \"text-error\";
+          return \"text-base-content\\/50\";
         }},
       }};
     }}
@@ -362,7 +391,7 @@ def _build_html(
           <h2 class=\"text-2xl font-black\">Snapshot Explorer</h2>
           <p class=\"mt-2 text-sm text-base-content/70\">Client-side filters and sorting over the embedded SQLite export.</p>
         </div>
-        <div class=\"grid gap-3 md:grid-cols-2\">
+        <div class=\"grid gap-3 md:grid-cols-2 lg:grid-cols-3\">
           <label class=\"form-control w-full\">
             <div class=\"label\"><span class=\"label-text text-xs font-semibold uppercase tracking-wider text-base-content/60\">Search</span></div>
             <input
@@ -380,6 +409,18 @@ def _build_html(
                 <option :value=\"item\" x-text=\"item\"></option>
               </template>
             </select>
+          </label>
+          <label class=\"form-control w-full cursor-pointer\">
+            <div class=\"label\"><span class=\"label-text text-xs font-semibold uppercase tracking-wider text-base-content/60\">Growth %</span></div>
+            <div class=\"flex h-12 items-center gap-2 rounded border border-base-300 bg-base-100 px-3\">
+              <input
+                type=\"checkbox\"
+                x-model=\"showGrowthPct\"
+                @change=\"syncGrowthToUrl()\"
+                class=\"checkbox checkbox-sm checkbox-primary\"
+              >
+              <span class=\"text-sm\">Show 7d&nbsp;/&nbsp;stars</span>
+            </div>
           </label>
         </div>
       </div>
@@ -458,6 +499,12 @@ def _build_html(
                     ><polyline points=\"6 9 12 15 18 9\"/></svg>
                   </button>
                 </th>
+                <th x-show=\"showGrowthPct\">
+                  <span class=\"inline-flex items-center gap-1.5\" title=\"Weekly star growth: delta_7d / stargazers_count\">
+                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><line x1=\"12\" y1=\"20\" x2=\"12\" y2=\"10\"/><line x1=\"18\" y1=\"20\" x2=\"18\" y2=\"4\"/><line x1=\"6\" y1=\"20\" x2=\"6\" y2=\"16\"/></svg>
+                    Growth %
+                  </span>
+                </th>
                 <th>
                   <span class=\"inline-flex items-center gap-1.5\">
                     <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"16 18 22 12 16 6\"/><polyline points=\"8 6 2 12 8 18\"/></svg>
@@ -497,6 +544,7 @@ def _build_html(
                   <td class=\"font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
                   <td class=\"font-semibold\" :class=\"deltaClass(row.delta_7d)\" x-text=\"deltaText(row.delta_7d)\"></td>
                   <td class=\"font-semibold\" :class=\"deltaClass(row.delta_30d)\" x-text=\"deltaText(row.delta_30d)\"></td>
+                  <td x-show=\"showGrowthPct\" class=\"font-semibold\" :class=\"growthPctClass(row)\" x-text=\"growthPctText(row)\"></td>
                   <td x-text=\"row.language || 'Unknown'\"></td>
                   <td class=\"text-base-content/60\" x-text=\"formatDate(row.updated_at) || '-'\"></td>
                   <td class=\"max-w-xs\">
