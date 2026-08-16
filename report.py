@@ -280,6 +280,9 @@ def _build_html(
           if (!d) return false;
           return d.length > 50;
         }},
+        description(row) {{
+          return (row.description || \"\").trim();
+        }},
       }};
     }}
   </script>
@@ -540,10 +543,10 @@ def _build_html(
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
                     <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
-                    <div x-show=\"(row.description || '').trim()\"
+                    <div x-show=\"description(row)\"
                          :class=\"descriptionNeedsTip(row) ? 'tooltip tooltip-right cursor-help w-full' : 'w-full'\"
-                         :data-tip=\"descriptionNeedsTip(row) ? row.description : ''\">
-                      <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"row.description\"></p>
+                         :data-tip=\"descriptionNeedsTip(row) ? description(row) : ''\">
+                      <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"description(row)\"></p>
                     </div>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
