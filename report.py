@@ -527,12 +527,6 @@ def _build_html(
                     ><polyline points=\"6 9 12 15 18 9\"/></svg>
                   </button>
                 </th>
-                <th>
-                  <span class=\"inline-flex items-center gap-1.5\">
-                    <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><polyline points=\"14 2 14 8 20 8\"/><line x1=\"16\" y1=\"13\" x2=\"8\" y2=\"13\"/><line x1=\"16\" y1=\"17\" x2=\"8\" y2=\"17\"/></svg>
-                    Description
-                  </span>
-                </th>
               </tr>
             </thead>
             <tbody>
@@ -541,6 +535,10 @@ def _build_html(
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
                     <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
+                    <p x-show=\"(row.description || '').trim()\"
+                       :data-tip=\"row.description || ''\"
+                       class=\"tooltip tooltip-left cursor-help line-clamp-1 text-xs text-base-content\\/60 leading-tight\"
+                       x-text=\"row.description\"></p>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
                   <td class=\"font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
@@ -549,15 +547,6 @@ def _build_html(
                   <td class=\"font-semibold\" :class=\"growthPctClass(row)\" x-text=\"growthPctText(row)\"></td>
                   <td x-text=\"row.language || 'Unknown'\"></td>
                   <td class=\"text-base-content/60\" x-text=\"formatDate(row.updated_at) || '-'\"></td>
-                  <td class=\"max-w-xs\">
-                    <div x-data=\"{{
-                      get needsTip() {{ return (row.description || '').length > 80; }}
-                    }}\"
-                         :class=\"needsTip ? 'tooltip tooltip-left w-full cursor-help' : 'w-full'\"
-                         :data-tip=\"needsTip ? (row.description || '') : ''\">
-                      <p class=\"line-clamp-2 text-base-content/70\" x-text=\"row.description || '-'\"></p>
-                    </div>
-                  </td>
                 </tr>
               </template>
             </tbody>
