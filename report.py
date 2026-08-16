@@ -127,10 +127,30 @@ def _build_html(
         sortDir: \"desc\",
         showGrowth: true,
         showRecent: true,
+        page: 1,
+        pageSize: 20,
         isDark: document.documentElement.getAttribute('data-theme') !== 'light',
         sortableKeys: [\"stars\", \"today\", \"delta_7d\", \"delta_30d\", \"growth_pct\", \"updated_at\"],
+        pageSizeOptions: [20, 50, 100],
         init() {{
           this.initFromUrl();
+          this.setPage(this.page);
+          this.$watch('search', () => {{
+            this.page = 1;
+            this.syncStateToUrl();
+          }});
+          this.$watch('language', () => {{
+            this.page = 1;
+            this.syncStateToUrl();
+          }});
+          this.$watch('pageSize', (next) => {{
+            if (!this.pageSizeOptions.includes(next)) {{
+              this.pageSize = 20;
+              return;
+            }}
+            this.page = 1;
+            this.syncStateToUrl();
+          }});
           window.addEventListener('keydown', (e) => {{
             if (!e.ctrlKey && !e.metaKey) return;
             if (e.key === '1') {{ e.preventDefault(); this.showGrowth = !this.showGrowth; }}
@@ -144,13 +164,19 @@ def _build_html(
             const dir = url.searchParams.get('dir');
             if (key && this.sortableKeys.includes(key)) this.sortKey = key;
             if (dir === 'asc' || dir === 'desc') this.sortDir = dir;
+            const page = parseInt(url.searchParams.get('page') || '1', 10);
+            if (Number.isInteger(page) && page >= 1) this.page = page;
+            const size = parseInt(url.searchParams.get('size') || '20', 10);
+            if (this.pageSizeOptions.includes(size)) this.pageSize = size;
           }} catch (e) {{ /* no-op */ }}
         }},
-        syncSortToUrl() {{
+        syncStateToUrl() {{
           try {{
             const url = new URL(window.location.href);
             url.searchParams.set('sort', this.sortKey);
             url.searchParams.set('dir', this.sortDir);
+            url.searchParams.set('page', String(this.page));
+            url.searchParams.set('size', String(this.pageSize));
             history.replaceState({{}}, '', url);
           }} catch (e) {{ /* no-op */ }}
         }},
@@ -162,7 +188,7 @@ def _build_html(
             this.sortKey = key;
             this.sortDir = 'desc';
           }}
-          this.syncSortToUrl();
+          this.syncStateToUrl();
         }},
         ariaSortFor(key) {{
           if (this.sortKey !== key) return 'none';
@@ -200,6 +226,37 @@ def _build_html(
             return matchesSearch && matchesLanguage;
           }});
           return items.sort((left, right) => this.compareRows(left, right));
+        }},
+        get totalPages() {{
+          return Math.max(1, Math.ceil(this.filteredRows.length / this.pageSize));
+        }},
+        get firstIndex() {{
+          if (this.filteredRows.length === 0) return 0;
+          return (this.page - 1) * this.pageSize + 1;
+        }},
+        get lastIndex() {{
+          if (this.filteredRows.length === 0) return 0;
+          return Math.min(this.page * this.pageSize, this.filteredRows.length);
+        }},
+        get pagedRows() {{
+          const total = this.totalPages;
+          const page = Math.min(Math.max(1, this.page), total);
+          return this.filteredRows.slice((page - 1) * this.pageSize, page * this.pageSize);
+        }},
+        setPage(next) {{
+          const total = this.totalPages;
+          const clamped = Math.min(Math.max(1, next), total);
+          if (clamped !== this.page) {{
+            this.page = clamped;
+            this.syncStateToUrl();
+          }}
+        }},
+        setPageSize(next) {{
+          if (!this.pageSizeOptions.includes(next)) return;
+          if (this.pageSize === next) return;
+          this.pageSize = next;
+          this.page = 1;
+          this.syncStateToUrl();
         }},
         compareRows(left, right) {{
           const dir = this.sortDir === \"asc\" ? 1 : -1;
@@ -433,8 +490,26 @@ def _build_html(
       </div>
 
       <div class=\"mt-6 overflow-clip rounded-lg border border-base-300 bg-base-100\">
-        <div class=\"border-b border-base-300 bg-base-200 px-4 py-2 text-sm text-base-content/70\">
-          <span x-text=\"filteredRows.length + ' repos visible'\"></span>
+        <div class=\"flex flex-wrap items-center justify-between gap-3 border-b border-base-300 bg-base-200 px-4 py-2 text-sm text-base-content/70\">
+          <div class=\"flex items-center gap-3\">
+            <span x-show=\"filteredRows.length > 0\" x-text=\"`Showing ${{firstIndex}}\u2013${{lastIndex}} of ${{filteredRows.length}}`\"></span>
+            <span x-show=\"filteredRows.length === 0\" class=\"italic\">No repos match the current filters.</span>
+          </div>
+          <div class=\"flex items-center gap-2\">
+            <label class=\"flex items-center gap-2\">
+              <span class=\"text-xs uppercase tracking-wider text-base-content/60\">Per page</span>
+              <select class=\"select select-bordered select-xs\" @change=\"setPageSize(parseInt($event.target.value, 10))\">
+                <template x-for=\"size in pageSizeOptions\" :key=\"size\">
+                  <option :value=\"size\" :selected=\"pageSize === size\" x-text=\"size\"></option>
+                </template>
+              </select>
+            </label>
+            <div class=\"join\">
+              <button type=\"button\" class=\"btn btn-xs join-item\" :disabled=\"page <= 1\" @click=\"setPage(page - 1)\">\u2039 Prev</button>
+              <span class=\"btn btn-xs join-item no-animation pointer-events-none\" x-text=\"`Page ${{page}} of ${{totalPages}}`\"></span>
+              <button type=\"button\" class=\"btn btn-xs join-item\" :disabled=\"page >= totalPages\" @click=\"setPage(page + 1)\">Next \u203a</button>
+            </div>
+          </div>
         </div>
         <div>
           <table class=\"table table-zebra\">
@@ -546,7 +621,7 @@ def _build_html(
               </tr>
             </thead>
             <tbody>
-              <template x-for=\"row in filteredRows\" :key=\"row.repo_id\">
+              <template x-for=\"row in pagedRows\" :key=\"row.repo_id\">
                 <tr class=\"hover:bg-base-200/40\">
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
@@ -569,6 +644,13 @@ def _build_html(
               </template>
             </tbody>
           </table>
+        </div>
+        <div class=\"flex flex-wrap items-center justify-between gap-3 border-t border-base-300 bg-base-200 px-4 py-2 text-sm text-base-content/70\">
+          <span x-text=\"`Page ${{page}} of ${{totalPages}}`\"></span>
+          <div class=\"join\">
+            <button type=\"button\" class=\"btn btn-xs join-item\" :disabled=\"page <= 1\" @click=\"setPage(page - 1)\">\u2039 Prev</button>
+            <button type=\"button\" class=\"btn btn-xs join-item\" :disabled=\"page >= totalPages\" @click=\"setPage(page + 1)\">Next \u203a</button>
+          </div>
         </div>
       </div>
     </section>
