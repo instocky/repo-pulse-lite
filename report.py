@@ -549,7 +549,7 @@ def _build_html(
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
                     <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
                     <div x-show=\"description(row)\"
-                         :class=\"descriptionNeedsTip(row) ? 'tooltip tooltip-right cursor-help w-full' : 'w-full'\"
+                         :class=\"descriptionNeedsTip(row) ? 'tooltip tooltip-right cursor-help block w-full' : 'block w-full'\"
                          :data-tip=\"descriptionNeedsTip(row) ? description(row) : ''\">
                       <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"description(row)\"></p>
                     </div>
