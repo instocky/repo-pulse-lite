@@ -109,6 +109,9 @@ def _build_html(
     }})();
   </script>
   <link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/daisyui@4.12.10/dist/full.min.css\">
+  <style>
+    .description-wrapper {{ display: block !important; width: 100%; }}
+  </style>
   <script src=\"https://cdn.tailwindcss.com\"></script>
   <script defer src=\"https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js\"></script>
   <script>
@@ -237,8 +240,8 @@ def _build_html(
           return left.full_name.localeCompare(right.full_name);
         }},
         deltaClass(value) {{
-          if (value === null || value === undefined) return \"text-base-content\\/40\";
-          if (value === 0) return \"text-base-content\\/50\";
+          if (value === null || value === undefined) return \"text-base-content/40\";
+          if (value === 0) return \"text-base-content/50\";
           if (value > 0) return \"text-success\";
           return \"text-error\";
         }},
@@ -260,10 +263,10 @@ def _build_html(
         }},
         growthPctClass(row) {{
           const g = this.relativeGrowth(row);
-          if (g === null) return \"text-base-content\\/40\";
+          if (g === null) return \"text-base-content/40\";
           if (g > 0) return \"text-success\";
           if (g < 0) return \"text-error\";
-          return \"text-base-content\\/50\";
+          return \"text-base-content/50\";
         }},
         repoName(row) {{
           if (!row.full_name) return \"\";
@@ -547,11 +550,12 @@ def _build_html(
                 <tr class=\"hover:bg-base-200/40\">
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
-                    <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
-                    <div x-show=\"description(row)\"
-                         :class=\"descriptionNeedsTip(row) ? 'tooltip tooltip-right cursor-help !block w-full' : '!block w-full'\"
+                    <div class=\"text-xs text-base-content/50 leading-tight\" x-text=\"ownerName(row)\"></div>
+                    <div class=\"description-wrapper\"
+                         x-show=\"description(row)\"
+                         :class=\"descriptionNeedsTip(row) ? 'tooltip tooltip-right cursor-help' : ''\"
                          :data-tip=\"descriptionNeedsTip(row) ? description(row) : ''\">
-                      <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"description(row)\"></p>
+                      <p class=\"line-clamp-1 text-xs text-base-content/60 leading-tight\" x-text=\"description(row)\"></p>
                     </div>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
