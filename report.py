@@ -265,6 +265,16 @@ def _build_html(
           if (g < 0) return \"text-error\";
           return \"text-base-content\\/50\";
         }},
+        repoName(row) {{
+          if (!row.full_name) return \"\";
+          const idx = row.full_name.indexOf(\"\\/\");
+          return idx === -1 ? row.full_name : row.full_name.slice(idx + 1);
+        }},
+        ownerName(row) {{
+          if (!row.full_name) return \"\";
+          const idx = row.full_name.indexOf(\"\\/\");
+          return idx === -1 ? \"\" : row.full_name.slice(0, idx);
+        }},
       }};
     }}
   </script>
@@ -529,7 +539,8 @@ def _build_html(
               <template x-for=\"row in filteredRows\" :key=\"row.repo_id\">
                 <tr class=\"hover:bg-base-200/40\">
                   <td>
-                    <a :href=\"row.html_url\" class=\"link link-primary font-semibold\" x-text=\"row.full_name\"></a>
+                    <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
+                    <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
                   <td class=\"font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
