@@ -120,16 +120,56 @@ def _build_html(
         recentUpdates: payload.recent_updates,
         search: \"\",
         language: \"all\",
-        sort: \"stars_desc\",
+        sortKey: \"delta_30d\",
+        sortDir: \"desc\",
         showGrowth: true,
         showRecent: true,
         isDark: document.documentElement.getAttribute('data-theme') !== 'light',
+        sortableKeys: [\"stars\", \"today\", \"delta_7d\", \"delta_30d\", \"updated_at\"],
         init() {{
+          this.initFromUrl();
           window.addEventListener('keydown', (e) => {{
             if (!e.ctrlKey && !e.metaKey) return;
             if (e.key === '1') {{ e.preventDefault(); this.showGrowth = !this.showGrowth; }}
             else if (e.key === '2') {{ e.preventDefault(); this.showRecent = !this.showRecent; }}
           }});
+        }},
+        initFromUrl() {{
+          try {{
+            const url = new URL(window.location.href);
+            const key = url.searchParams.get('sort');
+            const dir = url.searchParams.get('dir');
+            if (key && this.sortableKeys.includes(key)) this.sortKey = key;
+            if (dir === 'asc' || dir === 'desc') this.sortDir = dir;
+          }} catch (e) {{ /* no-op */ }}
+        }},
+        syncSortToUrl() {{
+          try {{
+            const url = new URL(window.location.href);
+            url.searchParams.set('sort', this.sortKey);
+            url.searchParams.set('dir', this.sortDir);
+            history.replaceState({{}}, '', url);
+          }} catch (e) {{ /* no-op */ }}
+        }},
+        toggleSort(key) {{
+          if (!this.sortableKeys.includes(key)) return;
+          if (this.sortKey === key) {{
+            this.sortDir = this.sortDir === 'desc' ? 'asc' : 'desc';
+          }} else {{
+            this.sortKey = key;
+            this.sortDir = 'desc';
+          }}
+          this.syncSortToUrl();
+        }},
+        ariaSortFor(key) {{
+          if (this.sortKey !== key) return 'none';
+          return this.sortDir === 'asc' ? 'ascending' : 'descending';
+        }},
+        indicatorClass(key) {{
+          if (this.sortKey !== key) return 'opacity-25';
+          return this.sortDir === 'asc'
+            ? 'text-primary opacity-100 rotate-180'
+            : 'text-primary opacity-100';
         }},
         toggleTheme() {{
           this.isDark = !this.isDark;
@@ -148,9 +188,7 @@ def _build_html(
         }},
         get filteredRows() {{
           const term = this.search.trim().toLowerCase();
-          const useRelative = this.sort === \"growth_pct_desc\";
           const items = this.rows.filter((row) => {{
-            if (useRelative && this.relativeGrowth(row) === null) return false;
             const matchesSearch =
               !term ||
               row.full_name.toLowerCase().includes(term) ||
@@ -161,24 +199,39 @@ def _build_html(
           return items.sort((left, right) => this.compareRows(left, right));
         }},
         compareRows(left, right) {{
-          if (this.sort === \"growth_desc\") {{
-            return this.bestDelta(right) - this.bestDelta(left) || right.stargazers_count - left.stargazers_count;
+          const dir = this.sortDir === \"asc\" ? 1 : -1;
+          const cmpNullable = (l, r) => {{
+            if (l === null && r === null) return 0;
+            if (l === null) return 1;
+            if (r === null) return -1;
+            return (l - r) * dir;
+          }};
+          let primary = 0;
+          switch (this.sortKey) {{
+            case \"stars\":
+              primary = (left.stargazers_count - right.stargazers_count) * dir;
+              break;
+            case \"today\":
+              primary = cmpNullable(left.today_delta, right.today_delta);
+              break;
+            case \"delta_7d\":
+              primary = cmpNullable(left.delta_7d, right.delta_7d);
+              break;
+            case \"delta_30d\":
+              primary = cmpNullable(left.delta_30d, right.delta_30d);
+              break;
+            case \"updated_at\":
+              primary = (left.updated_at || \"\").localeCompare(right.updated_at || \"\") * dir;
+              break;
           }}
-          if (this.sort === \"growth_pct_desc\") {{
-            return this.relativeGrowth(right) - this.relativeGrowth(left);
+          if (primary !== 0) return primary;
+          if (this.sortKey !== \"today\") {{
+            const l = left.today_delta ?? -Infinity;
+            const r = right.today_delta ?? -Infinity;
+            const todayCmp = r - l;
+            if (todayCmp !== 0) return todayCmp;
           }}
-          if (this.sort === \"updated_desc\") {{
-            return (right.updated_at || \"\").localeCompare(left.updated_at || \"\") || left.full_name.localeCompare(right.full_name);
-          }}
-          return right.stargazers_count - left.stargazers_count || left.full_name.localeCompare(right.full_name);
-        }},
-        bestDelta(row) {{
-          return row.delta_30d ?? row.delta_7d ?? row.today_delta ?? -1;
-        }},
-        relativeGrowth(row) {{
-          const stars = row.stargazers_count;
-          if (!row.delta_7d || stars <= 0) return null;
-          return row.delta_7d / stars;
+          return left.full_name.localeCompare(right.full_name);
         }},
         deltaClass(value) {{
           if (value === null || value === undefined) return \"text-base-content\\/40\";
@@ -309,7 +362,7 @@ def _build_html(
           <h2 class=\"text-2xl font-black\">Snapshot Explorer</h2>
           <p class=\"mt-2 text-sm text-base-content/70\">Client-side filters and sorting over the embedded SQLite export.</p>
         </div>
-        <div class=\"grid gap-3 md:grid-cols-3\">
+        <div class=\"grid gap-3 md:grid-cols-2\">
           <label class=\"form-control w-full\">
             <div class=\"label\"><span class=\"label-text text-xs font-semibold uppercase tracking-wider text-base-content/60\">Search</span></div>
             <input
@@ -326,15 +379,6 @@ def _build_html(
               <template x-for=\"item in languages\" :key=\"item\">
                 <option :value=\"item\" x-text=\"item\"></option>
               </template>
-            </select>
-          </label>
-          <label class=\"form-control w-full\">
-            <div class=\"label\"><span class=\"label-text text-xs font-semibold uppercase tracking-wider text-base-content/60\">Sort</span></div>
-            <select x-model=\"sort\" class=\"select select-bordered w-full\">
-              <option value=\"stars_desc\">Stars</option>
-              <option value=\"growth_desc\">Growth</option>
-              <option value=\"growth_pct_desc\">Growth %</option>
-              <option value=\"updated_desc\">Updated</option>
             </select>
           </label>
         </div>
@@ -354,32 +398,65 @@ def _build_html(
                     Repository
                   </span>
                 </th>
-                <th>
-                  <span class=\"inline-flex items-center gap-1.5\">
+                <th :aria-sort=\"ariaSortFor('stars')\">
+                  <button
+                    type=\"button\"
+                    @click=\"toggleSort('stars')\"
+                    class=\"inline-flex items-center gap-1.5 cursor-pointer select-none rounded hover:text-base-content focus:outline-none focus-visible:ring focus-visible:ring-primary/40\"
+                  >
                     <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg>
                     Stars
-                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'stars_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
-                  </span>
+                    <svg
+                      class=\"h-3 w-3 transition-transform\"
+                      :class=\"indicatorClass('stars')\"
+                      xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"
+                    ><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </button>
                 </th>
-                <th>
-                  <span class=\"inline-flex items-center gap-1.5\">
+                <th :aria-sort=\"ariaSortFor('today')\">
+                  <button
+                    type=\"button\"
+                    @click=\"toggleSort('today')\"
+                    class=\"inline-flex items-center gap-1.5 cursor-pointer select-none rounded hover:text-base-content focus:outline-none focus-visible:ring focus-visible:ring-primary/40\"
+                  >
                     <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
                     Today
-                  </span>
+                    <svg
+                      class=\"h-3 w-3 transition-transform\"
+                      :class=\"indicatorClass('today')\"
+                      xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"
+                    ><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </button>
                 </th>
-                <th>
-                  <span class=\"inline-flex items-center gap-1.5\">
+                <th :aria-sort=\"ariaSortFor('delta_7d')\">
+                  <button
+                    type=\"button\"
+                    @click=\"toggleSort('delta_7d')\"
+                    class=\"inline-flex items-center gap-1.5 cursor-pointer select-none rounded hover:text-base-content focus:outline-none focus-visible:ring focus-visible:ring-primary/40\"
+                  >
                     <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
                     7d
-                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'growth_pct_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
-                  </span>
+                    <svg
+                      class=\"h-3 w-3 transition-transform\"
+                      :class=\"indicatorClass('delta_7d')\"
+                      xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"
+                    ><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </button>
                 </th>
-                <th>
-                  <span class=\"inline-flex items-center gap-1.5\">
+                <th :aria-sort=\"ariaSortFor('delta_30d')\">
+                  <button
+                    type=\"button\"
+                    @click=\"toggleSort('delta_30d')\"
+                    class=\"inline-flex items-center gap-1.5 cursor-pointer select-none rounded hover:text-base-content focus:outline-none focus-visible:ring focus-visible:ring-primary/40\"
+                  >
                     <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"22 7 13.5 15.5 8.5 10.5 2 17\"/><polyline points=\"16 7 22 7 22 13\"/></svg>
                     30d
-                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'growth_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
-                  </span>
+                    <svg
+                      class=\"h-3 w-3 transition-transform\"
+                      :class=\"indicatorClass('delta_30d')\"
+                      xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"
+                    ><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </button>
                 </th>
                 <th>
                   <span class=\"inline-flex items-center gap-1.5\">
@@ -387,12 +464,20 @@ def _build_html(
                     Language
                   </span>
                 </th>
-                <th>
-                  <span class=\"inline-flex items-center gap-1.5\">
+                <th :aria-sort=\"ariaSortFor('updated_at')\">
+                  <button
+                    type=\"button\"
+                    @click=\"toggleSort('updated_at')\"
+                    class=\"inline-flex items-center gap-1.5 cursor-pointer select-none rounded hover:text-base-content focus:outline-none focus-visible:ring focus-visible:ring-primary/40\"
+                  >
                     <svg class=\"h-3.5 w-3.5 opacity-60\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\" ry=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/></svg>
                     Updated
-                    <svg class=\"h-3 w-3 text-primary\" x-show=\"sort === 'updated_desc'\" xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"6 9 12 15 18 9\"/></svg>
-                  </span>
+                    <svg
+                      class=\"h-3 w-3 transition-transform\"
+                      :class=\"indicatorClass('updated_at')\"
+                      xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"
+                    ><polyline points=\"6 9 12 15 18 9\"/></svg>
+                  </button>
                 </th>
                 <th>
                   <span class=\"inline-flex items-center gap-1.5\">
