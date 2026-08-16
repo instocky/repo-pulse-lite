@@ -281,7 +281,12 @@ def _build_html(
           return d.length > 50;
         }},
         description(row) {{
-          return (row.description || \"\").trim();
+          let d = (row.description || \"\").trim();
+          d = d.replace(/^:[a-z0-9_+\\-]+:\\s*/i, \"\");
+          if (d.length > 1 && d.startsWith('\"') && d.endsWith('\"')) {{
+            d = d.slice(1, -1).trim();
+          }}
+          return d;
         }},
       }};
     }}
