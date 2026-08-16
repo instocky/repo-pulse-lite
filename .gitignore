@@ -4,6 +4,7 @@ notes.md
 tmp/
 .serena/
 .codex*/
+.pytest*/
 
 # === Runtime ===
 pulse.db
