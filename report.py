@@ -275,6 +275,11 @@ def _build_html(
           const idx = row.full_name.indexOf(\"\\/\");
           return idx === -1 ? \"\" : row.full_name.slice(0, idx);
         }},
+        descriptionNeedsTip(row) {{
+          const d = (row.description || \"\").trim();
+          if (!d) return false;
+          return d.length > 50;
+        }},
       }};
     }}
   </script>
@@ -536,8 +541,8 @@ def _build_html(
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
                     <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
                     <div x-show=\"(row.description || '').trim()\"
-                         :data-tip=\"row.description || ''\"
-                         class=\"tooltip tooltip-right cursor-help w-full\">
+                         :class=\"descriptionNeedsTip(row) ? 'tooltip tooltip-right cursor-help w-full' : 'w-full'\"
+                         :data-tip=\"descriptionNeedsTip(row) ? row.description : ''\">
                       <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"row.description\"></p>
                     </div>
                   </td>
