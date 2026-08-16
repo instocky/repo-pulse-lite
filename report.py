@@ -535,10 +535,11 @@ def _build_html(
                   <td>
                     <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
                     <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
-                    <p x-show=\"(row.description || '').trim()\"
-                       :data-tip=\"row.description || ''\"
-                       class=\"tooltip tooltip-left cursor-help line-clamp-1 text-xs text-base-content\\/60 leading-tight\"
-                       x-text=\"row.description\"></p>
+                    <div x-show=\"(row.description || '').trim()\"
+                         :data-tip=\"row.description || ''\"
+                         class=\"tooltip tooltip-left cursor-help w-full\">
+                      <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"row.description\"></p>
+                    </div>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
                   <td class=\"font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
