@@ -537,7 +537,7 @@ def _build_html(
                     <div class=\"text-xs text-base-content\\/50 leading-tight\" x-text=\"ownerName(row)\"></div>
                     <div x-show=\"(row.description || '').trim()\"
                          :data-tip=\"row.description || ''\"
-                         class=\"tooltip tooltip-left cursor-help w-full\">
+                         class=\"tooltip tooltip-right cursor-help w-full\">
                       <p class=\"line-clamp-1 text-xs text-base-content\\/60 leading-tight\" x-text=\"row.description\"></p>
                     </div>
                   </td>
