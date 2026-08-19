@@ -624,7 +624,7 @@ def _build_html(
               <template x-for=\"row in pagedRows\" :key=\"row.repo_id\">
                 <tr class=\"hover:bg-base-200/40\">
                   <td>
-                    <a :href=\"row.html_url\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
+                    <a :href=\"row.html_url\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"link link-primary font-semibold leading-tight block\" x-text=\"repoName(row)\"></a>
                     <div class=\"text-xs text-base-content/50 leading-tight\" x-text=\"ownerName(row)\"></div>
                     <div class=\"description-wrapper\"
                          x-show=\"description(row)\"
@@ -707,7 +707,7 @@ def _build_html(
               <template x-for=\"row in topGrowth\" :key=\"row.full_name\">
                 <tr class=\"hover:bg-base-200/40\">
                   <td>
-                    <a :href=\"row.html_url\" class=\"link link-primary font-semibold\" x-text=\"row.full_name\"></a>
+                    <a :href=\"row.html_url\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"link link-primary font-semibold\" x-text=\"row.full_name\"></a>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
                   <td class=\"font-semibold\" :class=\"deltaClass(row.today_delta)\" x-text=\"deltaText(row.today_delta)\"></td>
@@ -757,7 +757,7 @@ def _build_html(
               <template x-for=\"row in recentUpdates\" :key=\"row.full_name\">
                 <tr class=\"hover:bg-base-200/40\">
                   <td>
-                    <a :href=\"row.html_url\" class=\"link link-info font-semibold\" x-text=\"row.full_name\"></a>
+                    <a :href=\"row.html_url\" target=\"_blank\" rel=\"noopener noreferrer\" class=\"link link-info font-semibold\" x-text=\"row.full_name\"></a>
                   </td>
                   <td x-text=\"row.stargazers_count.toLocaleString()\"></td>
                   <td x-text=\"row.language || 'Unknown'\"></td>
