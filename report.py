@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import html
 import json
+import shutil
 from pathlib import Path
 from statistics import mean
 import subprocess
 from typing import Any
 
 from db import select_latest_growth, select_recently_updated, select_top_growth
+
+
+# Favicon assets shipped next to the report. The report is served from a
+# directory that is NOT the project root (the preview dir), so the icons
+# have to be copied next to the generated HTML or the browser finds none.
+FAVICON_ASSETS = ("favicon.svg", "favicon-dark.svg", "favicon.ico")
 
 
 def write_report(database_path: Path, output_path: Path) -> int:
@@ -22,7 +29,21 @@ def write_report(database_path: Path, output_path: Path) -> int:
         _build_html(rows, top_growth, recent_updates, figure_html),
         encoding="utf-8",
     )
+    _publish_favicons(output_path.parent)
     return len(rows)
+
+
+def _publish_favicons(target_dir: Path) -> None:
+    """Copy the favicon assets next to the generated report."""
+    project_root = Path(__file__).resolve().parent
+    for name in FAVICON_ASSETS:
+        source = project_root / name
+        if not source.exists():
+            continue
+        destination = target_dir / name
+        if source.resolve() == destination.resolve():
+            continue
+        shutil.copyfile(source, destination)
 
 
 def _build_chart(rows: list[dict[str, Any]]) -> str:
@@ -97,6 +118,9 @@ def _build_html(
   <meta charset=\"utf-8\">
   <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">
   <title>Repo-Pulse Lite Report</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-dark.svg" media="(prefers-color-scheme: dark)" type="image/svg+xml">
+  <link rel="alternate icon" href="favicon.ico">
   <script>
     (function() {{
       try {{
